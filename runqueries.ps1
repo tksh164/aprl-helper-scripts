@@ -33,27 +33,6 @@ function Get-QueryFileContent
     return $query.Trim()
 }
 
-function Get-TargetResource
-{
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory = $true)]
-        [string] $ResourceId
-    )
-
-    $resourceIdParts = $ResourceId.Split('/')
-    if (($resourceIdParts.Length -eq 3) -and ($resourceIdParts[1] -eq 'subscriptions') -and
-        ([Text.RegularExpressions.Regex]::Match($resourceIdParts[2], '^[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}$').Success)) {
-        return Get-AzSubscription -SubscriptionId $resourceIdParts[2]
-    }
-    elseif ($resourceIdParts.Length -gt 3) {
-        return Get-AzResource -ResourceId $ResourceId
-    }
-
-    Write-Host -Object ('The resource ID "{0}" has an unexpected resource ID format.'-f $ResourceId) -ForegroundColor DarkYellow
-    return $null
-}
-
 function Invoke-TagFiltering
 {
     [CmdletBinding()]
@@ -106,6 +85,27 @@ function Invoke-TagFiltering
         ShouldOutput = $shouldOutput
         Tags         = $resource.Tags
     }
+}
+
+function Get-TargetResource
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $ResourceId
+    )
+
+    $resourceIdParts = $ResourceId.Split('/')
+    if (($resourceIdParts.Length -eq 3) -and ($resourceIdParts[1] -eq 'subscriptions') -and
+        ([Text.RegularExpressions.Regex]::Match($resourceIdParts[2], '^[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}$').Success)) {
+        return Get-AzSubscription -SubscriptionId $resourceIdParts[2]
+    }
+    elseif ($resourceIdParts.Length -gt 3) {
+        return Get-AzResource -ResourceId $ResourceId
+    }
+
+    Write-Host -Object ('The resource ID "{0}" has an unexpected resource ID format.'-f $ResourceId) -ForegroundColor DarkYellow
+    return $null
 }
 
 $azureContext = Get-AzContext
