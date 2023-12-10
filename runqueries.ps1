@@ -50,7 +50,7 @@ function Get-TargetResource
         return Get-AzResource -ResourceId $ResourceId
     }
 
-    Write-Host -Object ('Resource ID "{0}" has an unexpected resource ID format.'-f $ResourceId) -ForegroundColor DarkYellow
+    Write-Host -Object ('The resource ID "{0}" has an unexpected resource ID format.'-f $ResourceId) -ForegroundColor DarkYellow
     return $null
 }
 
@@ -58,15 +58,17 @@ function Invoke-TagFiltering
 {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)][AllowNull()]
-        [object] $Resource,
+        [Parameter(Mandatory = $true)]
+        [string] $ResourceId,
 
         [Parameter(Mandatory = $true)]
         [hashtable] $TagsToFilter
     )
 
-    if ($Resource -eq $null) {
-        Write-Host -Object 'Pass-through the tag filtering because the actual target resource is not specified.' -ForegroundColor DarkYellow
+    $resource = Get-TargetResource -ResourceId $ResourceId
+
+    if ($resource -eq $null) {
+        Write-Host -Object 'Skip the tag filtering because the actual target resource was not identified. This query result item will be included in the output (pass-through).' -ForegroundColor DarkYellow
         return @{
             ShouldOutput = $true
             Tags         = New-Object -TypeName 'System.Collections.Generic.Dictionary[[string],[string]]'  # Set tag as empty.
@@ -114,8 +116,7 @@ Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 3 |
     $query = Get-QueryFileContent -FilePath $_.FullName
     if ($query.Length -gt 0) {
         (Search-AzGraph -Query $query -Subscription $azureContext.Subscription.Id) | ForEach-Object -Process {
-            $targetResource = Get-TargetResource -ResourceId $_.ResourceId
-            $tagFilteringResult = Invoke-TagFiltering -Resource $targetResource -TagsToFilter $TagsToFilter
+            $tagFilteringResult = Invoke-TagFiltering -ResourceId $_.ResourceId -TagsToFilter $TagsToFilter
             if ($tagFilteringResult.ShouldOutput) {
                 Write-Verbose -Message ('Resource ID: {0}' -f $_.ResourceId)
                 [PSCustomObject] @{
