@@ -22,12 +22,12 @@ Three helper scripts for the Azure Proactive Resiliency Library (APRL) KQL queri
 ## Prerequisites
 
 - [Latest PowerShell](https://github.com/PowerShell/PowerShell) or Windows PowerShell 5.1
-- Tested on Windows, but the scripts may be run on other platforms well. Feedback is welcome.
+- Tested on Windows, but the scripts may be run on other platforms as well. Feedback is welcome.
 
 
 ## Quick start
 
-1. Download the APRL's KQL queries to local filesystem.
+1. Download the APRL's KQL queries to your local filesystem.
 
     ```powershell
     PS C:\aprl> .\queryget.ps1
