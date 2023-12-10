@@ -9,7 +9,9 @@ param (
     [string] $QueriesFolderPath = './queries',
 
     [Parameter(Mandatory = $false)]
-    [hashtable] $TagsToFilter = @{}
+    [hashtable] $TagsToFilter = @{},
+
+    [switch] $IncludeTag
 )
 
 $ErrorActionPreference = 'Stop'
@@ -38,8 +40,60 @@ function Invoke-TagFiltering
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
-        [hashtable] $TagsToFilter,
+        [string] $ResourceId,
 
+        [Parameter(Mandatory = $true)]
+        [hashtable] $TagsToFilter
+    )
+
+    $resource = Get-TargetResource -ResourceId $ResourceId
+
+    # Could not identified the resource.
+    if ($resource -eq $null) {
+        Write-Host -Object 'Skip the tag filtering because the actual target resource was not identified. This query result item will be included in the output (pass-through).' -ForegroundColor DarkYellow
+        return @{
+            ShouldOutput = $true
+            Tags         = New-Object -TypeName 'System.Collections.Generic.Dictionary[[string],[string]]'  # Set tag as empty.
+        }
+    }
+
+    # No tags are specified for filtering.
+    if ($TagsToFilter.Keys.Count -eq 0) {
+        return @{
+            ShouldOutput = $true
+            Tags         = if ($resource.Tags -ne $null) {
+                $resource.Tags
+            }
+            else {
+                New-Object -TypeName 'System.Collections.Generic.Dictionary[[string],[string]]'  # No tags.
+            }
+        }
+    }
+
+    # TODO: Tag finding can be skippped if the resource has no tags.
+
+    # Filter by tags.
+    $shouldOutput = $false
+    foreach ($filterTagName in $TagsToFilter.Keys) {
+        if ($resource.Tags.Keys -contains $filterTagName) {
+            if ($resource.Tags[$filterTagName] -eq $TagsToFilter[$filterTagName]) {
+                Write-Verbose -Message ('The specified tag was matched on {0}. Resource tag = {{"{1}":"{2}"}}, Filtering tag = {{"{1}":"{3}"}}.' -f $_.ResourceId, $filterTagName, $resource.Tags[$filterTagName], $TagsToFilter[$filterTagName])
+                $shouldOutput = $true
+                break
+            }
+        }
+    }
+
+    return @{
+        ShouldOutput = $shouldOutput
+        Tags         = $resource.Tags
+    }
+}
+
+function Get-TargetResource
+{
+    [CmdletBinding()]
+    param (
         [Parameter(Mandatory = $true)]
         [string] $ResourceId
     )
@@ -47,52 +101,48 @@ function Invoke-TagFiltering
     $resourceIdParts = $ResourceId.Split('/')
     if (($resourceIdParts.Length -eq 3) -and ($resourceIdParts[1] -eq 'subscriptions') -and
         ([Text.RegularExpressions.Regex]::Match($resourceIdParts[2], '^[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}$').Success)) {
-        $resource = Get-AzSubscription -SubscriptionId $resourceIdParts[2]
+        return Get-AzSubscription -SubscriptionId $resourceIdParts[2]
     }
     elseif ($resourceIdParts.Length -gt 3) {
-        $resource = Get-AzResource -ResourceId $ResourceId
-    }
-    else {
-        Write-Host -Object ('Skipped filtering by tag because the resouce ID format was unexpected. The resource ID was "{0}".' -f $ResourceId) -ForegroundColor DarkYellow
-        return @{
-            Result = $true
-            Tags   = New-Object -TypeName 'System.Collections.Generic.Dictionary[[string],[string]]'  # No tags.
-        }
+        return Get-AzResource -ResourceId $ResourceId
     }
 
-    # No tag filters.
-    if ($TagsToFilter.Keys.Count -eq 0) {
-        return @{
-            Result = $true
-            Tags   = $resource.Tags
-        }
-    }
-
-    # Filter by tags.
-    $shouldOutResult = $false
-    foreach ($filterTagName in $TagsToFilter.Keys) {
-        if ($resource.Tags.Keys -contains $filterTagName) {
-            if ($resource.Tags[$filterTagName] -eq $TagsToFilter[$filterTagName]) {
-                Write-Verbose -Message ('The specified tag was matched on {0}. Resource tag = {{"{1}":"{2}"}}, Filtering tag = {{"{1}":"{3}"}}.' -f $_.ResourceId, $filterTagName, $resource.Tags[$filterTagName], $TagsToFilter[$filterTagName])
-                $shouldOutResult = $true
-                break
-            }
-        }
-    }
-
-    return @{
-        Result = $shouldOutResult
-        Tags   = $resource.Tags
-    }
+    Write-Host -Object ('The resource ID "{0}" has an unexpected resource ID format.'-f $ResourceId) -ForegroundColor DarkYellow
+    return $null
 }
+
+function Get-SerializedTags
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [System.Collections.Generic.Dictionary[[string],[string]]] $Tags
+    )
+
+    return ($Tags.Keys | ForEach-Object -Process { '{{"{0}":"{1}"}}' -f $_, $Tags[$_] }) -join ', '
+}
+
+$IncludeTag = if ($TagsToFilter.Count -gt 0) { $true } else { $IncludeTag }
+
+$azureContext = Get-AzContext
+Write-Host -Object ('The current Azure context is "{0}".' -f $azureContext.Name)
 
 Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 3 | ForEach-Object -Process {
     Write-Host -Object ('Invoking a query with "{0}".' -f $_.FullName) -ForegroundColor Cyan
     $query = Get-QueryFileContent -FilePath $_.FullName
     if ($query.Length -gt 0) {
-        (Search-AzGraph -Query $query) | ForEach-Object -Process {
-            $tagFilteringResult = Invoke-TagFiltering -TagsToFilter $TagsToFilter -ResourceId $_.ResourceId
-            if ($tagFilteringResult.Result) {
+        (Search-AzGraph -Query $query -Subscription $azureContext.Subscription.Id) | ForEach-Object -Process {
+            Write-Verbose -Message ('Resource ID: {0}' -f $_.ResourceId)
+
+            if ($IncludeTag) {
+                $tagFilteringResult = Invoke-TagFiltering -ResourceId $_.ResourceId -TagsToFilter $TagsToFilter
+                $shouldOutput = $tagFilteringResult.ShouldOutput
+            }
+            else {
+                $shouldOutput = $true
+            }
+
+            if ($shouldOutput) {
                 [PSCustomObject] @{
                     'recommendationId' = $_.recommendationId
                     'name'             = $_.name
@@ -103,7 +153,7 @@ Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 3 |
                     'param4'           = $_.param4
                     'param5'           = $_.param5
                     'param6'           = $_.param6
-                    'tags'             = ($tagFilteringResult.Tags.Keys | ForEach-Object -Process { '{{"{0}":"{1}"}}' -f $_, $tagFilteringResult.Tags[$_] }) -join ', '
+                    'tags'             = if ($IncludeTag) { Get-SerializedTags -Tags $tagFilteringResult.Tags } else { '' }
                 }
             }
         }
