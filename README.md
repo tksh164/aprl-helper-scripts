@@ -42,7 +42,7 @@ Three helper scripts for the Azure Proactive Resiliency Library (APRL) KQL queri
 
 ### getqueries.ps1
 
-- Download the APRL's KQL queries to local filesystem.
+- Download the APRL's KQL queries on local filesystem.
 
     ```powershell
     PS C:\aprl> .\getqueries.ps1
