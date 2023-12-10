@@ -4,7 +4,7 @@
 
 Three helper scripts for the Azure Proactive Resiliency Library (APRL) KQL queries.
 
-- The `queryget.ps1` downloads APRL's KQL queries from the [APRL GitHub repository](https://github.com/Azure/Azure-Proactive-Resiliency-Library). Downloaded queries are stored in the `queries` folder in the current directory. The `queries` folder will be created if it does not exist.
+- The `getqueries.ps1` downloads APRL's KQL queries from the [APRL GitHub repository](https://github.com/Azure/Azure-Proactive-Resiliency-Library). Downloaded queries are stored in the `queries` folder in the current directory. The `queries` folder will be created if it does not exist.
 
 - The `runqueries.ps1` executes the downloaded KQL queries in the `queries` folder against your Azure subscription.
 
@@ -30,7 +30,7 @@ Three helper scripts for the Azure Proactive Resiliency Library (APRL) KQL queri
 1. Download the APRL's KQL queries to your local filesystem.
 
     ```powershell
-    PS C:\aprl> .\queryget.ps1
+    PS C:\aprl> .\getqueries.ps1
     ```
 
 2. Execute the APRL's KQL queries then save the result to the `./results.csv` file.
@@ -42,12 +42,12 @@ Three helper scripts for the Azure Proactive Resiliency Library (APRL) KQL queri
 
 ## Usage examples
 
-### queryget.ps1
+### getqueries.ps1
 
 - Download the APRL's KQL queries to local filesystem.
 
     ```powershell
-    PS C:\aprl> .\queryget.ps1
+    PS C:\aprl> .\getqueries.ps1
     ```
 
 ### runqueries.ps1 and saveascsv.ps1
