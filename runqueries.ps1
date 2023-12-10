@@ -86,11 +86,15 @@ function Invoke-TagFiltering
     }
 }
 
+$azureContext = Get-AzContext
+Write-Verbose -Message ('The current Azure context is "{0}".' -f $azureContext.Name)
+
 Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 3 | ForEach-Object -Process {
     Write-Host -Object ('Invoking a query with "{0}".' -f $_.FullName) -ForegroundColor Cyan
     $query = Get-QueryFileContent -FilePath $_.FullName
     if ($query.Length -gt 0) {
         (Search-AzGraph -Query $query) | ForEach-Object -Process {
+        (Search-AzGraph -Query $query -Subscription $azureContext.Subscription.Id) | ForEach-Object -Process {
             $tagFilteringResult = Invoke-TagFiltering -TagsToFilter $TagsToFilter -ResourceId $_.ResourceId
             if ($tagFilteringResult.Result) {
                 [PSCustomObject] @{
