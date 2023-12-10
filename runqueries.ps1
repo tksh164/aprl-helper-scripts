@@ -109,7 +109,7 @@ function Get-TargetResource
 }
 
 $azureContext = Get-AzContext
-Write-Verbose -Message ('The current Azure context is "{0}".' -f $azureContext.Name)
+Write-Host -Object ('The current Azure context is "{0}".' -f $azureContext.Name)
 
 Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 3 | ForEach-Object -Process {
     Write-Host -Object ('Invoking a query with "{0}".' -f $_.FullName) -ForegroundColor Cyan
