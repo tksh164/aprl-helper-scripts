@@ -9,7 +9,9 @@ param (
     [string] $QueriesFolderPath = './queries',
 
     [Parameter(Mandatory = $false)]
-    [hashtable] $TagsToFilter = @{}
+    [hashtable] $TagsToFilter = @{},
+
+    [switch] $OmitTagData
 )
 
 $ErrorActionPreference = 'Stop'
@@ -109,6 +111,17 @@ function Get-TargetResource
     return $null
 }
 
+function Get-SerializedTags
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [System.Collections.Generic.Dictionary[[string],[string]]] $Tags
+    )
+
+    return ($Tags.Keys | ForEach-Object -Process { '{{"{0}":"{1}"}}' -f $_, $Tags[$_] }) -join ', '
+}
+
 $azureContext = Get-AzContext
 Write-Host -Object ('The current Azure context is "{0}".' -f $azureContext.Name)
 
@@ -117,8 +130,15 @@ Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 3 |
     $query = Get-QueryFileContent -FilePath $_.FullName
     if ($query.Length -gt 0) {
         (Search-AzGraph -Query $query -Subscription $azureContext.Subscription.Id) | ForEach-Object -Process {
-            $tagFilteringResult = Invoke-TagFiltering -ResourceId $_.ResourceId -TagsToFilter $TagsToFilter
-            if ($tagFilteringResult.ShouldOutput) {
+            if ($OmitTagData) {
+                $shouldOutput = $true
+            }
+            else {
+                $tagFilteringResult = Invoke-TagFiltering -ResourceId $_.ResourceId -TagsToFilter $TagsToFilter
+                $shouldOutput = $tagFilteringResult.ShouldOutput
+            }
+
+            if ($shouldOutput) {
                 Write-Verbose -Message ('Resource ID: {0}' -f $_.ResourceId)
                 [PSCustomObject] @{
                     'recommendationId' = $_.recommendationId
@@ -130,7 +150,7 @@ Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 3 |
                     'param4'           = $_.param4
                     'param5'           = $_.param5
                     'param6'           = $_.param6
-                    'tags'             = ($tagFilteringResult.Tags.Keys | ForEach-Object -Process { '{{"{0}":"{1}"}}' -f $_, $tagFilteringResult.Tags[$_] }) -join ', '
+                    'tags'             = if ($OmitTagData) { '' } else { Get-SerializedTags -Tags $tagFilteringResult.Tags }
                 }
             }
         }
