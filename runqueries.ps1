@@ -11,7 +11,7 @@ param (
     [Parameter(Mandatory = $false)]
     [hashtable] $TagsToFilter = @{},
 
-    [switch] $OmitTagData
+    [switch] $IncludeTag
 )
 
 $ErrorActionPreference = 'Stop'
@@ -122,6 +122,8 @@ function Get-SerializedTags
     return ($Tags.Keys | ForEach-Object -Process { '{{"{0}":"{1}"}}' -f $_, $Tags[$_] }) -join ', '
 }
 
+$IncludeTag = if ($TagsToFilter.Count -gt 0) { $true } else { $IncludeTag }
+
 $azureContext = Get-AzContext
 Write-Host -Object ('The current Azure context is "{0}".' -f $azureContext.Name)
 
@@ -130,16 +132,17 @@ Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 3 |
     $query = Get-QueryFileContent -FilePath $_.FullName
     if ($query.Length -gt 0) {
         (Search-AzGraph -Query $query -Subscription $azureContext.Subscription.Id) | ForEach-Object -Process {
-            if ($OmitTagData) {
-                $shouldOutput = $true
-            }
-            else {
+            Write-Verbose -Message ('Resource ID: {0}' -f $_.ResourceId)
+
+            if ($IncludeTag) {
                 $tagFilteringResult = Invoke-TagFiltering -ResourceId $_.ResourceId -TagsToFilter $TagsToFilter
                 $shouldOutput = $tagFilteringResult.ShouldOutput
             }
+            else {
+                $shouldOutput = $true
+            }
 
             if ($shouldOutput) {
-                Write-Verbose -Message ('Resource ID: {0}' -f $_.ResourceId)
                 [PSCustomObject] @{
                     'recommendationId' = $_.recommendationId
                     'name'             = $_.name
@@ -150,7 +153,7 @@ Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 3 |
                     'param4'           = $_.param4
                     'param5'           = $_.param5
                     'param6'           = $_.param6
-                    'tags'             = if ($OmitTagData) { '' } else { Get-SerializedTags -Tags $tagFilteringResult.Tags }
+                    'tags'             = if ($IncludeTag) { Get-SerializedTags -Tags $tagFilteringResult.Tags } else { '' }
                 }
             }
         }
