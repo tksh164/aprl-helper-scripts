@@ -20,7 +20,7 @@ Three helper scripts for the Azure Proactive Resiliency Library (APRL) KQL queri
 ## Prerequisites
 
 - [Latest PowerShell](https://github.com/PowerShell/PowerShell) or Windows PowerShell 5.1
-- Tested on Windows, but the scripts may be run on other platforms as well. Feedback is welcome.
+- The scripts tested on Windows, but the scripts may be run on other platforms as well. Feedback is welcome.
 
 
 ## Quick start
