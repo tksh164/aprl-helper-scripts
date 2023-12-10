@@ -96,6 +96,7 @@ Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 3 |
         (Search-AzGraph -Query $query -Subscription $azureContext.Subscription.Id) | ForEach-Object -Process {
             $tagFilteringResult = Invoke-TagFiltering -TagsToFilter $TagsToFilter -ResourceId $_.ResourceId
             if ($tagFilteringResult.Result) {
+                Write-Verbose -Message ('Resource ID: {0}' -f $_.ResourceId)
                 [PSCustomObject] @{
                     'recommendationId' = $_.recommendationId
                     'name'             = $_.name
