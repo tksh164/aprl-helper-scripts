@@ -46,6 +46,7 @@ function Invoke-TagFiltering
 
     $resource = Get-TargetResource -ResourceId $ResourceId
 
+    # Could not identified the resource.
     if ($resource -eq $null) {
         Write-Host -Object 'Skip the tag filtering because the actual target resource was not identified. This query result item will be included in the output (pass-through).' -ForegroundColor DarkYellow
         return @{
