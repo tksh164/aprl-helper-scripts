@@ -56,7 +56,7 @@ function Invoke-TagFiltering
         Write-Host -Object ('Skipped filtering by tag because the resouce ID format was unexpected. The resource ID was "{0}".' -f $ResourceId) -ForegroundColor DarkYellow
         return @{
             Result = $true
-            Tags   = New-Object -TypeName 'System.Collections.Generic.Dictionary[[string],[string]]'  # No tags.
+            Tags   = New-Object -TypeName 'System.Collections.Generic.Dictionary[[string],[string]]'  # Set tag as empty.
         }
     }
 
@@ -64,7 +64,12 @@ function Invoke-TagFiltering
     if ($TagsToFilter.Keys.Count -eq 0) {
         return @{
             Result = $true
-            Tags   = $resource.Tags
+            Tags   = if ($resource.Tags -ne $null) {
+                $resource.Tags
+            }
+            else {
+                New-Object -TypeName 'System.Collections.Generic.Dictionary[[string],[string]]'  # No tags.
+            }
         }
     }
 
