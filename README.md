@@ -1,7 +1,5 @@
 # APRL helper scripts
 
-## Helper scripts
-
 Three helper scripts for the Azure Proactive Resiliency Library (APRL) KQL queries.
 
 - The `getqueries.ps1` downloads APRL's KQL queries from the [APRL GitHub repository](https://github.com/Azure/Azure-Proactive-Resiliency-Library). Downloaded queries are stored in the `queries` folder in the current directory. The `queries` folder will be created if it does not exist.
