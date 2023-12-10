@@ -58,17 +58,6 @@ function Invoke-TagFiltering
 {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)]
-        [object] $Resource
-    )
-
-    $Resource.Tags
-}
-
-function Invoke-TagFiltering
-{
-    [CmdletBinding()]
-    param (
         [Parameter(Mandatory = $true)][AllowNull()]
         [object] $Resource,
 
