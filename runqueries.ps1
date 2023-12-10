@@ -33,13 +33,10 @@ function Get-QueryFileContent
     return $query.Trim()
 }
 
-function Invoke-TagFiltering
+function Get-TargetResource
 {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)]
-        [hashtable] $TagsToFilter,
-
         [Parameter(Mandatory = $true)]
         [string] $ResourceId
     )
@@ -47,20 +44,47 @@ function Invoke-TagFiltering
     $resourceIdParts = $ResourceId.Split('/')
     if (($resourceIdParts.Length -eq 3) -and ($resourceIdParts[1] -eq 'subscriptions') -and
         ([Text.RegularExpressions.Regex]::Match($resourceIdParts[2], '^[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}$').Success)) {
-        $resource = Get-AzSubscription -SubscriptionId $resourceIdParts[2]
+        return Get-AzSubscription -SubscriptionId $resourceIdParts[2]
     }
     elseif ($resourceIdParts.Length -gt 3) {
-        $resource = Get-AzResource -ResourceId $ResourceId
+        return Get-AzResource -ResourceId $ResourceId
     }
-    else {
-        Write-Host -Object ('Skipped filtering by tag because the resouce ID format was unexpected. The resource ID was "{0}".' -f $ResourceId) -ForegroundColor DarkYellow
+
+    Write-Host -Object ('Resource ID "{0}" has an unexpected resource ID format.'-f $ResourceId) -ForegroundColor DarkYellow
+    return $null
+}
+
+function Invoke-TagFiltering
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [object] $Resource
+    )
+
+    $Resource.Tags
+}
+
+function Invoke-TagFiltering
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)][AllowNull()]
+        [object] $Resource,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable] $TagsToFilter
+    )
+
+    if ($Resource -eq $null) {
+        Write-Host -Object 'Pass-through the tag filtering because the actual target resource is not specified.' -ForegroundColor DarkYellow
         return @{
             Result = $true
             Tags   = New-Object -TypeName 'System.Collections.Generic.Dictionary[[string],[string]]'  # Set tag as empty.
         }
     }
 
-    # No tag filters.
+    # No tags are specified for filtering.
     if ($TagsToFilter.Keys.Count -eq 0) {
         return @{
             Result = $true
@@ -72,6 +96,8 @@ function Invoke-TagFiltering
             }
         }
     }
+
+    # TODO: Tag finding can be skippped if the resource has no tags.
 
     # Filter by tags.
     $shouldOutResult = $false
@@ -99,7 +125,8 @@ Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 3 |
     $query = Get-QueryFileContent -FilePath $_.FullName
     if ($query.Length -gt 0) {
         (Search-AzGraph -Query $query -Subscription $azureContext.Subscription.Id) | ForEach-Object -Process {
-            $tagFilteringResult = Invoke-TagFiltering -TagsToFilter $TagsToFilter -ResourceId $_.ResourceId
+            $targetResource = Get-TargetResource -ResourceId $_.ResourceId
+            $tagFilteringResult = Invoke-TagFiltering -Resource $targetResource -TagsToFilter $TagsToFilter
             if ($tagFilteringResult.Result) {
                 Write-Verbose -Message ('Resource ID: {0}' -f $_.ResourceId)
                 [PSCustomObject] @{
