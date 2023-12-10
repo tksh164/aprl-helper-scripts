@@ -79,16 +79,16 @@ function Invoke-TagFiltering
     if ($Resource -eq $null) {
         Write-Host -Object 'Pass-through the tag filtering because the actual target resource is not specified.' -ForegroundColor DarkYellow
         return @{
-            Result = $true
-            Tags   = New-Object -TypeName 'System.Collections.Generic.Dictionary[[string],[string]]'  # Set tag as empty.
+            ShouldOutput = $true
+            Tags         = New-Object -TypeName 'System.Collections.Generic.Dictionary[[string],[string]]'  # Set tag as empty.
         }
     }
 
     # No tags are specified for filtering.
     if ($TagsToFilter.Keys.Count -eq 0) {
         return @{
-            Result = $true
-            Tags   = if ($resource.Tags -ne $null) {
+            ShouldOutput = $true
+            Tags         = if ($resource.Tags -ne $null) {
                 $resource.Tags
             }
             else {
@@ -100,20 +100,20 @@ function Invoke-TagFiltering
     # TODO: Tag finding can be skippped if the resource has no tags.
 
     # Filter by tags.
-    $shouldOutResult = $false
+    $shouldOutput = $false
     foreach ($filterTagName in $TagsToFilter.Keys) {
         if ($resource.Tags.Keys -contains $filterTagName) {
             if ($resource.Tags[$filterTagName] -eq $TagsToFilter[$filterTagName]) {
                 Write-Verbose -Message ('The specified tag was matched on {0}. Resource tag = {{"{1}":"{2}"}}, Filtering tag = {{"{1}":"{3}"}}.' -f $_.ResourceId, $filterTagName, $resource.Tags[$filterTagName], $TagsToFilter[$filterTagName])
-                $shouldOutResult = $true
+                $shouldOutput = $true
                 break
             }
         }
     }
 
     return @{
-        Result = $shouldOutResult
-        Tags   = $resource.Tags
+        ShouldOutput = $shouldOutput
+        Tags         = $resource.Tags
     }
 }
 
@@ -127,7 +127,7 @@ Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 3 |
         (Search-AzGraph -Query $query -Subscription $azureContext.Subscription.Id) | ForEach-Object -Process {
             $targetResource = Get-TargetResource -ResourceId $_.ResourceId
             $tagFilteringResult = Invoke-TagFiltering -Resource $targetResource -TagsToFilter $TagsToFilter
-            if ($tagFilteringResult.Result) {
+            if ($tagFilteringResult.ShouldOutput) {
                 Write-Verbose -Message ('Resource ID: {0}' -f $_.ResourceId)
                 [PSCustomObject] @{
                     'recommendationId' = $_.recommendationId
