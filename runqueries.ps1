@@ -65,12 +65,62 @@ function Invoke-ArgQuery
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
-        [PSCustomObject] $Query
+        [PSCustomObject] $Query,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable] $TagsToFilter,
+    
+        [switch] $IncludeTag
     )
 
+    if ($Query.IsAvailable) {
+        Write-Host -Object ('{0,-10}: Invoking the query.' -f $Query.Id) -ForegroundColor Cyan -NoNewline
+        Write-Host -Object (' - "{0}"' -f $Query.FilePath) -ForegroundColor DarkGray
+        (Search-AzGraph -Query $Query.QueryContent -Subscription $azureContext.Subscription.Id) | ForEach-Object -Process {
+            Write-Verbose -Message ('Resource ID: {0}' -f $_.ResourceId)
 
+            if ($IncludeTag) {
+                $tagFilteringResult = Invoke-TagFiltering -ResourceId $_.ResourceId -TagsToFilter $TagsToFilter
+                $shouldOutput = $tagFilteringResult.ShouldOutput
+            }
+            else {
+                $shouldOutput = $true
+            }
 
-
+            if ($shouldOutput) {
+                [PSCustomObject] @{
+                    'recommendationId' = $_.recommendationId
+                    'name'             = $_.name
+                    'resourceId'       = $_.ResourceId
+                    'tags'             = if ($IncludeTag) { Get-SerializedTags -Tags $tagFilteringResult.Tags } else { '' }
+                    'param1'           = $_.param1
+                    'param2'           = $_.param2
+                    'param3'           = $_.param3
+                    'param4'           = $_.param4
+                    'param5'           = $_.param5
+                    'param6'           = $_.param6
+                }
+            }
+        }
+    }
+    else {
+        Write-Host -Object ('{0,-10}: Skip invoking because it is {1}.' -f $Query.Id, $Query.UnavailableReason) -ForegroundColor Cyan -NoNewline
+        Write-Host -Object (' - "{0}"' -f $Query.FilePath) -ForegroundColor DarkGray
+        if ($IncludeSkippedQueries) {
+            [PSCustomObject] @{
+                'recommendationId' = '{0} ({1})' -f $Query.Id.ToLower(), $Query.UnavailableReason
+                'name'             = ''
+                'resourceId'       = ''
+                'tags'             = ''
+                'param1'           = ''
+                'param2'           = ''
+                'param3'           = ''
+                'param4'           = ''
+                'param5'           = ''
+                'param6'           = ''
+            }
+        }
+    }
 }
 
 function Invoke-TagFiltering
@@ -167,52 +217,5 @@ Write-Host -Object ('The current Azure context is "{0}".' -f $azureContext.Name)
 
 Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 5 | ForEach-Object -Process {
     $query = Get-ArgQuery -FilePath $_.FullName
-    if ($query.IsAvailable) {
-        Write-Host -Object ('{0,-10}: Invoking the query.' -f $query.Id) -ForegroundColor Cyan -NoNewline
-        Write-Host -Object (' - "{0}"' -f $query.FilePath) -ForegroundColor DarkGray
-        (Search-AzGraph -Query $query.QueryContent -Subscription $azureContext.Subscription.Id) | ForEach-Object -Process {
-            Write-Verbose -Message ('Resource ID: {0}' -f $_.ResourceId)
-
-            if ($IncludeTag) {
-                $tagFilteringResult = Invoke-TagFiltering -ResourceId $_.ResourceId -TagsToFilter $TagsToFilter
-                $shouldOutput = $tagFilteringResult.ShouldOutput
-            }
-            else {
-                $shouldOutput = $true
-            }
-
-            if ($shouldOutput) {
-                [PSCustomObject] @{
-                    'recommendationId' = $_.recommendationId
-                    'name'             = $_.name
-                    'resourceId'       = $_.ResourceId
-                    'tags'             = if ($IncludeTag) { Get-SerializedTags -Tags $tagFilteringResult.Tags } else { '' }
-                    'param1'           = $_.param1
-                    'param2'           = $_.param2
-                    'param3'           = $_.param3
-                    'param4'           = $_.param4
-                    'param5'           = $_.param5
-                    'param6'           = $_.param6
-                }
-            }
-        }
-    }
-    else {
-        Write-Host -Object ('{0,-10}: Skip invoking because it is {1}.' -f $query.Id, $query.UnavailableReason) -ForegroundColor Cyan -NoNewline
-        Write-Host -Object (' - "{0}"' -f $query.FilePath) -ForegroundColor DarkGray
-        if ($IncludeSkippedQueries) {
-            [PSCustomObject] @{
-                'recommendationId' = '{0} ({1})' -f $query.Id.ToLower(), $query.UnavailableReason
-                'name'             = ''
-                'resourceId'       = ''
-                'tags'             = ''
-                'param1'           = ''
-                'param2'           = ''
-                'param3'           = ''
-                'param4'           = ''
-                'param5'           = ''
-                'param6'           = ''
-            }
-        }
-    }
+    Invoke-ArgQuery -Query $query -TagsToFilter $TagsToFilter -IncludeTag:$IncludeTag
 }
