@@ -20,7 +20,7 @@ Import-Module -Name 'Az.ResourceGraph' -Force
 Import-Module -Name 'Az.Accounts' -Force
 Import-Module -Name 'Az.Resources' -Force
 
-function Get-QueryFileContent
+function Get-Query
 {
     [CmdletBinding()]
     param (
@@ -28,11 +28,34 @@ function Get-QueryFileContent
         [string] $FilePath
     )
 
-    $query = Get-Content -LiteralPath $FilePath -Encoding UTF8 -Raw
-    $query = $query -replace '\W*//.*',''            # Remove comments.
-    $query = $query -replace 'under-development',''  # Workaround for non-commented out comments.
+    $returnValue = [PSCustomObject]@{
+        Id                = [System.IO.Path]::GetFileNameWithoutExtension($FilePath).ToUpper()
+        FilePath          = $FilePath
+        QueryContent      = Get-Content -LiteralPath $FilePath -Encoding UTF8 -Raw
+        IsAvailable       = $true
+        UnavailableReason = ''
+    }
 
-    return $query.Trim()
+    if ($returnValue.QueryContent.IndexOf('// under-development') -ge 0) {
+        $returnValue.IsAvailable = $false
+        $returnValue.UnavailableReason = 'under development'
+    }
+    # NOTE: workaround
+    elseif ($returnValue.QueryContent.IndexOf('under-development') -ge 0) {
+        $returnValue.IsAvailable = $false
+        $returnValue.UnavailableReason = 'under development'
+    }
+    # NOTE: workaround
+    elseif ($returnValue.QueryContent.IndexOf('//under development') -ge 0) {
+        $returnValue.IsAvailable = $false
+        $returnValue.UnavailableReason = 'under development'
+    }
+    elseif ($returnValue.QueryContent.IndexOf('// cannot-be-validated-with-arg') -ge 0) {
+        $returnValue.IsAvailable = $false
+        $returnValue.UnavailableReason = 'cannot be validated with ARG'
+    }
+
+    return $returnValue
 }
 
 function Invoke-TagFiltering
@@ -107,7 +130,7 @@ function Get-TargetResource
         return Get-AzResource -ResourceId $ResourceId
     }
 
-    Write-Host -Object ('The resource ID "{0}" has an unexpected resource ID format.'-f $ResourceId) -ForegroundColor DarkYellow
+    Write-Host -Object ('The resource ID "{0}" has an unexpected resource ID format.' -f $ResourceId) -ForegroundColor DarkYellow
     return $null
 }
 
@@ -127,11 +150,12 @@ $IncludeTag = if ($TagsToFilter.Count -gt 0) { $true } else { $IncludeTag }
 $azureContext = Get-AzContext
 Write-Host -Object ('The current Azure context is "{0}".' -f $azureContext.Name)
 
-Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 3 | ForEach-Object -Process {
-    Write-Host -Object ('Invoking a query with "{0}".' -f $_.FullName) -ForegroundColor Cyan
-    $query = Get-QueryFileContent -FilePath $_.FullName
-    if ($query.Length -gt 0) {
-        (Search-AzGraph -Query $query -Subscription $azureContext.Subscription.Id) | ForEach-Object -Process {
+Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 5 | ForEach-Object -Process {
+    $query = Get-Query -FilePath $_.FullName
+    if ($query.IsAvailable) {
+            Write-Host -Object ('{0,-10}: Invoking the query.' -f $query.Id) -ForegroundColor Cyan -NoNewline
+            Write-Host -Object (' - "{0}"' -f $query.FilePath) -ForegroundColor DarkGray
+            (Search-AzGraph -Query $query.QueryContent -Subscription $azureContext.Subscription.Id) | ForEach-Object -Process {
             Write-Verbose -Message ('Resource ID: {0}' -f $_.ResourceId)
 
             if ($IncludeTag) {
@@ -147,15 +171,19 @@ Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 3 |
                     'recommendationId' = $_.recommendationId
                     'name'             = $_.name
                     'resourceId'       = $_.ResourceId
+                    'tags'             = if ($IncludeTag) { Get-SerializedTags -Tags $tagFilteringResult.Tags } else { '' }
                     'param1'           = $_.param1
                     'param2'           = $_.param2
                     'param3'           = $_.param3
                     'param4'           = $_.param4
                     'param5'           = $_.param5
                     'param6'           = $_.param6
-                    'tags'             = if ($IncludeTag) { Get-SerializedTags -Tags $tagFilteringResult.Tags } else { '' }
                 }
             }
         }
+    }
+    else {
+        Write-Host -Object ('{0,-10}: Skip invoking because it is {1}.' -f $query.Id, $query.UnavailableReason) -ForegroundColor Cyan -NoNewline
+        Write-Host -Object (' - "{0}"' -f $query.FilePath) -ForegroundColor DarkGray
     }
 }
