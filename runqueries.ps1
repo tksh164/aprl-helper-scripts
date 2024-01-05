@@ -68,6 +68,9 @@ function Invoke-ArgQuery
         [PSCustomObject] $Query,
 
         [Parameter(Mandatory = $true)]
+        [string] $SubscriptionId,
+
+        [Parameter(Mandatory = $true)]
         [hashtable] $TagsToFilter,
     
         [switch] $IncludeTag
@@ -76,32 +79,44 @@ function Invoke-ArgQuery
     if ($Query.IsAvailable) {
         Write-Host -Object ('{0,-10}: Invoking the query.' -f $Query.Id) -ForegroundColor Cyan -NoNewline
         Write-Host -Object (' - "{0}"' -f $Query.FilePath) -ForegroundColor DarkGray
-        (Search-AzGraph -Query $Query.QueryContent -Subscription $azureContext.Subscription.Id) | ForEach-Object -Process {
-            Write-Verbose -Message ('Resource ID: {0}' -f $_.ResourceId)
 
-            if ($IncludeTag) {
-                $tagFilteringResult = Invoke-TagFiltering -ResourceId $_.ResourceId -TagsToFilter $TagsToFilter
-                $shouldOutput = $tagFilteringResult.ShouldOutput
-            }
-            else {
-                $shouldOutput = $true
-            }
-
-            if ($shouldOutput) {
-                [PSCustomObject] @{
-                    'recommendationId' = $_.recommendationId
-                    'name'             = $_.name
-                    'resourceId'       = $_.ResourceId
-                    'tags'             = if ($IncludeTag) { Get-SerializedTags -Tags $tagFilteringResult.Tags } else { '' }
-                    'param1'           = $_.param1
-                    'param2'           = $_.param2
-                    'param3'           = $_.param3
-                    'param4'           = $_.param4
-                    'param5'           = $_.param5
-                    'param6'           = $_.param6
+        $params = @{
+            Query        = $Query.QueryContent
+            Subscription = $SubscriptionId
+            First        = 1000  # Maximum number of results retrieved at once
+        }
+        $response = Search-AzGraph @params
+        do {
+            $response | ForEach-Object -Process {
+                Write-Verbose -Message ('Resource ID: {0}' -f $_.ResourceId)
+    
+                if ($IncludeTag) {
+                    $tagFilteringResult = Invoke-TagFiltering -ResourceId $_.ResourceId -TagsToFilter $TagsToFilter
+                    $shouldOutput = $tagFilteringResult.ShouldOutput
+                }
+                else {
+                    $shouldOutput = $true
+                }
+    
+                if ($shouldOutput) {
+                    [PSCustomObject] @{
+                        'recommendationId' = $_.recommendationId
+                        'name'             = $_.name
+                        'resourceId'       = $_.ResourceId
+                        'tags'             = if ($IncludeTag) { Get-SerializedTags -Tags $tagFilteringResult.Tags } else { '' }
+                        'param1'           = $_.param1
+                        'param2'           = $_.param2
+                        'param3'           = $_.param3
+                        'param4'           = $_.param4
+                        'param5'           = $_.param5
+                        'param6'           = $_.param6
+                    }
                 }
             }
-        }
+
+            $params.SkipToken = $response.SkipToken
+            $response = Search-AzGraph @params
+        } while ($response.SkipToken -ne $null)
     }
     else {
         Write-Host -Object ('{0,-10}: Skip invoking because it is {1}.' -f $Query.Id, $Query.UnavailableReason) -ForegroundColor Cyan -NoNewline
@@ -217,5 +232,5 @@ Write-Host -Object ('The current Azure context is "{0}".' -f $azureContext.Name)
 
 Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 5 | ForEach-Object -Process {
     $query = Get-ArgQuery -FilePath $_.FullName
-    Invoke-ArgQuery -Query $query -TagsToFilter $TagsToFilter -IncludeTag:$IncludeTag
+    Invoke-ArgQuery -Query $query -SubscriptionId $azureContext.Subscription.Id -TagsToFilter $TagsToFilter -IncludeTag:$IncludeTag
 }
