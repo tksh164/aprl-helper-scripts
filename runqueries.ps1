@@ -9,9 +9,9 @@ param (
     [string] $QueriesFolderPath = './queries',
 
     [Parameter(Mandatory = $false)]
-    [hashtable] $TagsToFilter = @{},
+    [hashtable] $AssuredTagsToFilter = @{},
 
-    [switch] $IncludeTag,
+    [switch] $IncludeAssuredTags,
 
     [switch] $IncludeSkippedQueries
 )
@@ -71,9 +71,9 @@ function Invoke-ArgQuery
         [string] $SubscriptionId,
 
         [Parameter(Mandatory = $true)]
-        [hashtable] $TagsToFilter,
+        [hashtable] $AssuredTagsToFilter,
     
-        [switch] $IncludeTag
+        [switch] $IncludeAssuredTags
     )
 
     if ($Query.IsAvailable) {
@@ -90,8 +90,8 @@ function Invoke-ArgQuery
             $response | ForEach-Object -Process {
                 Write-Verbose -Message ('Resource ID: {0}' -f $_.ResourceId)
     
-                if ($IncludeTag) {
-                    $tagFilteringResult = Invoke-TagFiltering -ResourceId $_.ResourceId -TagsToFilter $TagsToFilter
+                if ($IncludeAssuredTags) {
+                    $tagFilteringResult = Invoke-TagFiltering -ResourceId $_.ResourceId -AssuredTagsToFilter $AssuredTagsToFilter
                     $shouldOutput = $tagFilteringResult.ShouldOutput
                 }
                 else {
@@ -102,14 +102,15 @@ function Invoke-ArgQuery
                     [PSCustomObject] @{
                         'recommendationId' = $_.recommendationId
                         'name'             = $_.name
-                        'resourceId'       = $_.ResourceId
-                        'tags'             = if ($IncludeTag) { Get-SerializedTags -Tags $tagFilteringResult.Tags } else { '' }
+                        'resourceId'       = $_.id
+                        'tags'             = $_.tags
                         'param1'           = $_.param1
                         'param2'           = $_.param2
                         'param3'           = $_.param3
                         'param4'           = $_.param4
                         'param5'           = $_.param5
                         'param6'           = $_.param6
+                        'assuredTags'      = if ($IncludeAssuredTags) { Get-SerializedTags -Tags $tagFilteringResult.Tags } else { '' }
                     }
                 }
             }
@@ -133,6 +134,7 @@ function Invoke-ArgQuery
                 'param4'           = ''
                 'param5'           = ''
                 'param6'           = ''
+                'assuredTags'      = ''
             }
         }
     }
@@ -146,7 +148,7 @@ function Invoke-TagFiltering
         [string] $ResourceId,
 
         [Parameter(Mandatory = $true)]
-        [hashtable] $TagsToFilter
+        [hashtable] $AssuredTagsToFilter
     )
 
     $resource = Get-TargetResource -ResourceId $ResourceId
@@ -161,7 +163,7 @@ function Invoke-TagFiltering
     }
 
     # No tags are specified for filtering.
-    if ($TagsToFilter.Keys.Count -eq 0) {
+    if ($AssuredTagsToFilter.Keys.Count -eq 0) {
         return @{
             ShouldOutput = $true
             Tags         = if ($resource.Tags -ne $null) {
@@ -177,10 +179,10 @@ function Invoke-TagFiltering
 
     # Filter by tags.
     $shouldOutput = $false
-    foreach ($filterTagName in $TagsToFilter.Keys) {
+    foreach ($filterTagName in $AssuredTagsToFilter.Keys) {
         if ($resource.Tags.Keys -contains $filterTagName) {
-            if ($resource.Tags[$filterTagName] -eq $TagsToFilter[$filterTagName]) {
-                Write-Verbose -Message ('The specified tag was matched on {0}. Resource tag = {{"{1}":"{2}"}}, Filtering tag = {{"{1}":"{3}"}}.' -f $_.ResourceId, $filterTagName, $resource.Tags[$filterTagName], $TagsToFilter[$filterTagName])
+            if ($resource.Tags[$filterTagName] -eq $AssuredTagsToFilter[$filterTagName]) {
+                Write-Verbose -Message ('The specified tag was matched on {0}. Resource tag = {{"{1}":"{2}"}}, Filtering tag = {{"{1}":"{3}"}}.' -f $_.ResourceId, $filterTagName, $resource.Tags[$filterTagName], $AssuredTagsToFilter[$filterTagName])
                 $shouldOutput = $true
                 break
             }
@@ -225,12 +227,18 @@ function Get-SerializedTags
     return ($Tags.Keys | ForEach-Object -Process { '{{"{0}":"{1}"}}' -f $_, $Tags[$_] }) -join ', '
 }
 
-$IncludeTag = if ($TagsToFilter.Count -gt 0) { $true } else { $IncludeTag }
+$IncludeAssuredTags = if ($AssuredTagsToFilter.Count -gt 0) { $true } else { $IncludeAssuredTags }
 
 $azureContext = Get-AzContext
 Write-Host -Object ('The current Azure context is "{0}".' -f $azureContext.Name)
 
 Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 5 | ForEach-Object -Process {
     $query = Get-ArgQuery -FilePath $_.FullName
-    Invoke-ArgQuery -Query $query -SubscriptionId $azureContext.Subscription.Id -TagsToFilter $TagsToFilter -IncludeTag:$IncludeTag
+    $params = @{
+        Query               = $query
+        SubscriptionId      = $azureContext.Subscription.Id
+        AssuredTagsToFilter = $AssuredTagsToFilter
+        IncludeAssuredTags  = $IncludeAssuredTags
+    }
+    Invoke-ArgQuery @params
 }
