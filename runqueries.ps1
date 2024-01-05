@@ -22,7 +22,7 @@ Import-Module -Name 'Az.ResourceGraph' -Force
 Import-Module -Name 'Az.Accounts' -Force
 Import-Module -Name 'Az.Resources' -Force
 
-function Get-Query
+function Get-ArgQuery
 {
     [CmdletBinding()]
     param (
@@ -30,7 +30,7 @@ function Get-Query
         [string] $FilePath
     )
 
-    $returnValue = [PSCustomObject]@{
+    $returnValue = [PSCustomObject] @{
         Id                = [System.IO.Path]::GetFileNameWithoutExtension($FilePath).ToUpper()
         FilePath          = $FilePath
         QueryContent      = Get-Content -LiteralPath $FilePath -Encoding UTF8 -Raw
@@ -153,7 +153,7 @@ $azureContext = Get-AzContext
 Write-Host -Object ('The current Azure context is "{0}".' -f $azureContext.Name)
 
 Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 5 | ForEach-Object -Process {
-    $query = Get-Query -FilePath $_.FullName
+    $query = Get-ArgQuery -FilePath $_.FullName
     if ($query.IsAvailable) {
             Write-Host -Object ('{0,-10}: Invoking the query.' -f $query.Id) -ForegroundColor Cyan -NoNewline
             Write-Host -Object (' - "{0}"' -f $query.FilePath) -ForegroundColor DarkGray
