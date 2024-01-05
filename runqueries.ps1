@@ -11,7 +11,9 @@ param (
     [Parameter(Mandatory = $false)]
     [hashtable] $TagsToFilter = @{},
 
-    [switch] $IncludeTag
+    [switch] $IncludeTag,
+
+    [switch] $IncludeSkippedQueries
 )
 
 $ErrorActionPreference = 'Stop'
@@ -185,5 +187,19 @@ Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 5 |
     else {
         Write-Host -Object ('{0,-10}: Skip invoking because it is {1}.' -f $query.Id, $query.UnavailableReason) -ForegroundColor Cyan -NoNewline
         Write-Host -Object (' - "{0}"' -f $query.FilePath) -ForegroundColor DarkGray
+        if ($IncludeSkippedQueries) {
+            [PSCustomObject] @{
+                'recommendationId' = '{0} ({1})' -f $query.Id.ToLower(), $query.UnavailableReason
+                'name'             = ''
+                'resourceId'       = ''
+                'tags'             = ''
+                'param1'           = ''
+                'param2'           = ''
+                'param3'           = ''
+                'param4'           = ''
+                'param5'           = ''
+                'param6'           = ''
+            }
+        }
     }
 }
