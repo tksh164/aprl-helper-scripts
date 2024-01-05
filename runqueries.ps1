@@ -60,6 +60,19 @@ function Get-ArgQuery
     return $returnValue
 }
 
+function Invoke-ArgQuery
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject] $Query
+    )
+
+
+
+
+}
+
 function Invoke-TagFiltering
 {
     [CmdletBinding()]
@@ -155,9 +168,9 @@ Write-Host -Object ('The current Azure context is "{0}".' -f $azureContext.Name)
 Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 5 | ForEach-Object -Process {
     $query = Get-ArgQuery -FilePath $_.FullName
     if ($query.IsAvailable) {
-            Write-Host -Object ('{0,-10}: Invoking the query.' -f $query.Id) -ForegroundColor Cyan -NoNewline
-            Write-Host -Object (' - "{0}"' -f $query.FilePath) -ForegroundColor DarkGray
-            (Search-AzGraph -Query $query.QueryContent -Subscription $azureContext.Subscription.Id) | ForEach-Object -Process {
+        Write-Host -Object ('{0,-10}: Invoking the query.' -f $query.Id) -ForegroundColor Cyan -NoNewline
+        Write-Host -Object (' - "{0}"' -f $query.FilePath) -ForegroundColor DarkGray
+        (Search-AzGraph -Query $query.QueryContent -Subscription $azureContext.Subscription.Id) | ForEach-Object -Process {
             Write-Verbose -Message ('Resource ID: {0}' -f $_.ResourceId)
 
             if ($IncludeTag) {
