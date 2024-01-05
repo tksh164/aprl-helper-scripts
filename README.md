@@ -2,9 +2,9 @@
 
 Three helper scripts for Azure Resource Graph (ARG) queries of the Azure Proactive Resiliency Library (APRL).
 
-- The `getqueries.ps1` downloads ARG queries from the [APRL GitHub repository](https://github.com/Azure/Azure-Proactive-Resiliency-Library). Downloaded queries are stored in the `queries` folder in the current directory. The `queries` folder will be created if it does not exist.
+- The `getaprl.ps1` downloads ARG queries from the [APRL GitHub repository](https://github.com/Azure/Azure-Proactive-Resiliency-Library). Downloaded queries are stored in the `queries` folder in the current directory. The `queries` folder will be created if it does not exist.
 
-- The `runqueries.ps1` executes the downloaded ARG queries in the `queries` folder against your Azure subscription.
+- The `runaprl.ps1` executes the downloaded ARG queries in the `queries` folder against your Azure subscription.
 
     You must have completed [Connect-AzAccount](https://learn.microsoft.com/en-us/powershell/module/az.accounts/connect-azaccount) and [Set-AzContext](https://learn.microsoft.com/en-us/powershell/module/az.accounts/set-azcontext) correctly before run this script.
     
@@ -14,7 +14,7 @@ Three helper scripts for Azure Resource Graph (ARG) queries of the Azure Proacti
     Install-Module -Name 'Az.ResourceGraph', 'Az.Accounts', 'Az.Resources' -Repository 'PSGallery' -Scope AllUsers -Force
     ```
 
-- The `saveascsv.ps1` saves the output from `runqueries.ps1` as a CSV file. The default output file path is `./results.csv`.
+- The `saveascsv.ps1` saves the output from `runaprl.ps1` as a CSV file. The default output file path is `./results.csv`.
 
 
 ## Prerequisites
@@ -28,50 +28,50 @@ Three helper scripts for Azure Resource Graph (ARG) queries of the Azure Proacti
 1. Download the APRL's ARG queries onto your local filesystem.
 
     ```powershell
-    PS C:\aprl> .\getqueries.ps1
+    PS C:\aprl> .\getaprl.ps1
     ```
 
 2. Execute the APRL's ARG queries then save the result to the `./results.csv` file.
 
     ```powershell
-    PS C:\aprl> .\runqueries.ps1 | .\saveascsv.ps1
+    PS C:\aprl> .\runaprl.ps1 | .\saveascsv.ps1
     ```
 
 
 ## Usage examples
 
-### getqueries.ps1
+### getaprl.ps1
 
 - Download the APRL's ARG queries onto your local filesystem.
 
     ```powershell
-    PS C:\aprl> .\getqueries.ps1
+    PS C:\aprl> .\getaprl.ps1
     ```
 
-### runqueries.ps1 and saveascsv.ps1
+### runaprl.ps1 and saveascsv.ps1
 
 - Execute the APRL's ARG queries without saving the result to a file.
 
     ```powershell
-    PS C:\aprl> .\runqueries.ps1
+    PS C:\aprl> .\runaprl.ps1
     ```
 
 - Execute the APRL's ARG queries then showing the result in a grid view.
 
     ```powershell
-    PS C:\aprl> .\runqueries.ps1 | Out-GridView
+    PS C:\aprl> .\runaprl.ps1 | Out-GridView
     ```
 
 - Execute the APRL's ARG queries then save the result to a CSV file using the standard PowerShell cmdlets.
 
     ```powershell
-    PS C:\aprl> .\runqueries.ps1 | ConvertTo-Csv -NoTypeInformation | Out-File -LiteralPath './results.csv' -Encoding utf8 -Force
+    PS C:\aprl> .\runaprl.ps1 | ConvertTo-Csv -NoTypeInformation | Out-File -LiteralPath './results.csv' -Encoding utf8 -Force
     ```
 
 - Execute the APRL's ARG queries then save the result to a CSV file using the `saveascsv.ps1` script.
 
     ```powershell
-    PS C:\aprl> .\runqueries.ps1 | .\saveascsv.ps1
+    PS C:\aprl> .\runaprl.ps1 | .\saveascsv.ps1
     ```
 
 ## License
