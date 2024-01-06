@@ -42,16 +42,6 @@ function Get-ArgQuery
         $returnValue.IsAvailable = $false
         $returnValue.UnavailableReason = 'under development'
     }
-    # NOTE: workaround
-    elseif ($returnValue.QueryContent.IndexOf('under-development') -ge 0) {
-        $returnValue.IsAvailable = $false
-        $returnValue.UnavailableReason = 'under development'
-    }
-    # NOTE: workaround
-    elseif ($returnValue.QueryContent.IndexOf('//under development') -ge 0) {
-        $returnValue.IsAvailable = $false
-        $returnValue.UnavailableReason = 'under development'
-    }
     elseif ($returnValue.QueryContent.IndexOf('// cannot-be-validated-with-arg') -ge 0) {
         $returnValue.IsAvailable = $false
         $returnValue.UnavailableReason = 'cannot be validated with ARG'
