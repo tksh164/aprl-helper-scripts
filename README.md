@@ -77,6 +77,8 @@ Three helper scripts have different purposes.
     PS C:\aprl> .\runaprl.ps1 | Out-GridView
     ```
 
+    ![](docs/media/runaprl-gridview.gif)
+
 ## License
 
 Copyright (c) 2023-present Takeshi Katano. All rights reserved. This software is released under the [MIT License](https://github.com/tksh164/aprl-helper-scripts/blob/main/LICENSE).
