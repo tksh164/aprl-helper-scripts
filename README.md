@@ -1,6 +1,6 @@
 # APRL helper scripts
 
-The helper scripts to utilize the [Azure Proactive Resiliency Library (APRL)](https://github.com/Azure/Azure-Proactive-Resiliency-Library).
+The helper scripts to utilize the [Azure Proactive Resiliency Library (APRL)](https://github.com/Azure/Azure-Proactive-Resiliency-Library). The scripts allow batch execution of the APRL's queries.
 
 ## Helper scripts
 
