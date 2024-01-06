@@ -79,6 +79,9 @@ Three helper scripts have different purposes.
 
     ![](docs/media/runaprl-gridview.gif)
 
+    > [!NOTE]
+    > The [Out-GridView](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/out-gridview) cmdlet available on Windows Desktop only. The similar cmdlet for cross-platform version is provided by the [ConsoleGuiTools](https://www.powershellgallery.com/packages/Microsoft.PowerShell.ConsoleGuiTools) module in the PowerShell Gallery.
+
 ## License
 
 Copyright (c) 2023-present Takeshi Katano. All rights reserved. This software is released under the [MIT License](https://github.com/tksh164/aprl-helper-scripts/blob/main/LICENSE).
