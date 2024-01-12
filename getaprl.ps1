@@ -25,12 +25,15 @@ Expand-Archive -Path $zipFilePath -DestinationPath $zipExpandedFolderPath -Force
 Write-Host -Object ('Extracting the APRL queries to "{0}"...' -f $QueriesFolderPath) -ForegroundColor Cyan
 $subFolderPath = [IO.Path]::Combine('Azure-Proactive-Resiliency-Library-main', 'docs', 'content', 'services')
 $queryFileSearchBasePath = Join-Path -Path $zipExpandedFolderPath -ChildPath $subFolderPath
-Get-ChildItem -Path $queryFileSearchBasePath -File -Filter '*.kql' -Recurse -Depth 5 | ForEach-Object -Process {
-    $sourceFilePath = $_.FullName
-    $destinationChildPath = $sourceFilePath.Substring($sourceFilePath.LastIndexOf($subFolderPath) + $subFolderPath.Length + 1)
-    $destinationFilePath = Join-Path -Path $QueriesFolderPath -ChildPath $destinationChildPath
-    New-Item -ItemType Directory -Path ([IO.Path]::GetDirectoryName($destinationFilePath)) -Force | Out-Null
-    Move-Item -LiteralPath $sourceFilePath -Destination $destinationFilePath -Force
+'*.kql', '*.ps1' | ForEach-Object -Process {
+    $filter = $_
+    Get-ChildItem -Path $queryFileSearchBasePath -File -Filter $filter -Recurse -Depth 5 | ForEach-Object -Process {
+        $sourceFilePath = $_.FullName
+        $destinationChildPath = $sourceFilePath.Substring($sourceFilePath.LastIndexOf($subFolderPath) + $subFolderPath.Length + 1)
+        $destinationFilePath = Join-Path -Path $QueriesFolderPath -ChildPath $destinationChildPath
+        New-Item -ItemType Directory -Path ([IO.Path]::GetDirectoryName($destinationFilePath)) -Force | Out-Null
+        Move-Item -LiteralPath $sourceFilePath -Destination $destinationFilePath -Force
+    }
 }
 
 Write-Verbose -Message ('Trying cleaning up the working files and folders ("{0}", "{1}").' -f $zipFilePath, $zipExpandedFolderPath)
