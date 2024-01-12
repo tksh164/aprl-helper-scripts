@@ -22,6 +22,17 @@ Import-Module -Name 'Az.ResourceGraph' -Force
 Import-Module -Name 'Az.Accounts' -Force
 Import-Module -Name 'Az.Resources' -Force
 
+function Get-RecommendationIdFromFilePath
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $FilePath
+    )
+
+    return [System.IO.Path]::GetFileNameWithoutExtension($FilePath).ToUpper()
+}
+
 function Get-ArgQuery
 {
     [CmdletBinding()]
@@ -30,24 +41,24 @@ function Get-ArgQuery
         [string] $FilePath
     )
 
-    $returnValue = [PSCustomObject] @{
-        Id                = [System.IO.Path]::GetFileNameWithoutExtension($FilePath).ToUpper()
+    $argQuery = [PSCustomObject] @{
+        Id                = Get-RecommendationIdFromFilePath -FilePath $FilePath
         FilePath          = $FilePath
-        QueryContent      = Get-Content -LiteralPath $FilePath -Encoding UTF8 -Raw
+        QueryBody         = Get-Content -LiteralPath $FilePath -Encoding UTF8 -Raw
         IsAvailable       = $true
         UnavailableReason = ''
     }
 
-    if ($returnValue.QueryContent.IndexOf('// under-development') -ge 0) {
-        $returnValue.IsAvailable = $false
-        $returnValue.UnavailableReason = 'under development'
+    if ($argQuery.QueryBody.IndexOf('// under-development') -ge 0) {
+        $argQuery.IsAvailable = $false
+        $argQuery.UnavailableReason = 'under development'
     }
-    elseif ($returnValue.QueryContent.IndexOf('// cannot-be-validated-with-arg') -ge 0) {
-        $returnValue.IsAvailable = $false
-        $returnValue.UnavailableReason = 'cannot be validated with ARG'
+    elseif ($argQuery.QueryBody.IndexOf('// cannot-be-validated-with-arg') -ge 0) {
+        $argQuery.IsAvailable = $false
+        $argQuery.UnavailableReason = 'cannot be validated with ARG'
     }
 
-    return $returnValue
+    return $argQuery
 }
 
 function Invoke-ArgQuery
@@ -58,131 +69,109 @@ function Invoke-ArgQuery
         [PSCustomObject] $Query,
 
         [Parameter(Mandatory = $true)]
-        [string] $SubscriptionId,
-
-        [Parameter(Mandatory = $true)]
-        [hashtable] $AssuredTagsToFilter,
-    
-        [switch] $IncludeAssuredTags
+        [string] $SubscriptionId
     )
 
-    if ($Query.IsAvailable) {
-        Write-Host -Object ('{0,-10}: Invoking the query.' -f $Query.Id) -ForegroundColor Cyan -NoNewline
-        Write-Host -Object (' - "{0}"' -f $Query.FilePath) -ForegroundColor DarkGray
-
-        $params = @{
-            Query        = $Query.QueryContent
-            Subscription = $SubscriptionId
-            First        = 1000  # Maximum number of results retrieved at once
-        }
-        $response = Search-AzGraph @params
-        do {
-            $response | ForEach-Object -Process {
-                Write-Verbose -Message ('Resource ID: {0}' -f $_.ResourceId)
-    
-                if ($IncludeAssuredTags) {
-                    $tagFilteringResult = Invoke-TagFiltering -ResourceId $_.ResourceId -AssuredTagsToFilter $AssuredTagsToFilter
-                    $shouldOutput = $tagFilteringResult.ShouldOutput
-                }
-                else {
-                    $shouldOutput = $true
-                }
-    
-                if ($shouldOutput) {
-                    [PSCustomObject] @{
-                        'recommendationId' = $_.recommendationId
-                        'name'             = $_.name
-                        'resourceId'       = $_.id
-                        'tags'             = $_.tags
-                        'param1'           = $_.param1
-                        'param2'           = $_.param2
-                        'param3'           = $_.param3
-                        'param4'           = $_.param4
-                        'param5'           = $_.param5
-                        'param6'           = $_.param6
-                        'assuredTags'      = if ($IncludeAssuredTags) { Get-SerializedTags -Tags $tagFilteringResult.Tags } else { '' }
-                    }
-                }
-            }
-
-            $params.SkipToken = $response.SkipToken
-            $response = Search-AzGraph @params
-        } while ($response.SkipToken -ne $null)
+    $params = @{
+        Query        = $Query.QueryBody
+        Subscription = $SubscriptionId
+        First        = 1000  # Maximum number of results retrieved at once
     }
-    else {
-        Write-Host -Object ('{0,-10}: Skip invoking because it is {1}.' -f $Query.Id, $Query.UnavailableReason) -ForegroundColor Cyan -NoNewline
-        Write-Host -Object (' - "{0}"' -f $Query.FilePath) -ForegroundColor DarkGray
-        if ($IncludeSkippedQueries) {
-            [PSCustomObject] @{
-                'recommendationId' = '{0} ({1})' -f $Query.Id.ToLower(), $Query.UnavailableReason
-                'name'             = ''
-                'resourceId'       = ''
-                'tags'             = ''
-                'param1'           = ''
-                'param2'           = ''
-                'param3'           = ''
-                'param4'           = ''
-                'param5'           = ''
-                'param6'           = ''
+    $response = Search-AzGraph @params
+    do {
+        $response | ForEach-Object -Process {
+            return [PSCustomObject] @{
+                'recommendationId' = $_.recommendationId
+                'name'             = $_.name
+                'id'               = $_.id
+                'tags'             = $_.tags
+                'param1'           = $_.param1
+                'param2'           = $_.param2
+                'param3'           = $_.param3
+                'param4'           = $_.param4
+                'param5'           = $_.param5
+                'param6'           = $_.param6
                 'assuredTags'      = ''
             }
         }
-    }
+        $params.SkipToken = $response.SkipToken
+        $response = Search-AzGraph @params
+    } while ($response.SkipToken -ne $null)
 }
 
-function Invoke-TagFiltering
+function Invoke-PowerShellScript
 {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
-        [string] $ResourceId,
-
-        [Parameter(Mandatory = $true)]
-        [hashtable] $AssuredTagsToFilter
+        [string] $PowerShellScriptFilePath
     )
 
-    $resource = Get-TargetResource -ResourceId $ResourceId
+    & $PowerShellScriptFilePath | ForEach-Object -Process {
+        return [PSCustomObject] @{
+            'recommendationId' = $_.recommendationId
+            'name'             = $_.name
+            'id'               = $_.id
+            'tags'             = $_.tags
+            'param1'           = $_.param1
+            'param2'           = $_.param2
+            'param3'           = $_.param3
+            'param4'           = $_.param4
+            'param5'           = $_.param5
+            'param6'           = $_.param6
+            'assuredTags'      = ''
+        }
+    }
+}
 
-    # Could not identified the resource.
+function Get-UnavailableRecommendationResult
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $RecommendationId,
+
+        [Parameter(Mandatory = $true)]
+        [string] $UnavailableReason
+    )
+
+    return [PSCustomObject] @{
+        'recommendationId' = '{0} ({1})' -f $RecommendationId, $UnavailableReason
+        'name'             = ''
+        'id'               = ''
+        'tags'             = ''
+        'param1'           = ''
+        'param2'           = ''
+        'param3'           = ''
+        'param4'           = ''
+        'param5'           = ''
+        'param6'           = ''
+        'assuredTags'      = ''
+    }
+}
+
+function Get-ResourceTag
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)][AllowEmptyString()]
+        [string] $ResourceId
+    )
+
+    if ([string]::IsNullOrWhiteSpace($ResourceId)) {
+        return ''  # The resource ID is not available.
+    }
+
+    $resource = Get-TargetResource -ResourceId $ResourceId
     if ($resource -eq $null) {
         Write-Host -Object 'Skip the tag filtering because the actual target resource was not identified. This query result item will be included in the output (pass-through).' -ForegroundColor DarkYellow
-        return @{
-            ShouldOutput = $true
-            Tags         = New-Object -TypeName 'System.Collections.Generic.Dictionary[[string],[string]]'  # Set tag as empty.
-        }
+        return New-Object -TypeName 'System.Collections.Generic.Dictionary[[string],[string]]'  # Set tag as empty.
     }
 
-    # No tags are specified for filtering.
-    if ($AssuredTagsToFilter.Keys.Count -eq 0) {
-        return @{
-            ShouldOutput = $true
-            Tags         = if ($resource.Tags -ne $null) {
-                $resource.Tags
-            }
-            else {
-                New-Object -TypeName 'System.Collections.Generic.Dictionary[[string],[string]]'  # No tags.
-            }
-        }
+    if ($resource.Tags -eq $null) {
+        return New-Object -TypeName 'System.Collections.Generic.Dictionary[[string],[string]]'  # Set an empty dictionary if there are no tags.
     }
-
-    # TODO: Tag finding can be skippped if the resource has no tags.
-
-    # Filter by tags.
-    $shouldOutput = $false
-    foreach ($filterTagName in $AssuredTagsToFilter.Keys) {
-        if ($resource.Tags.Keys -contains $filterTagName) {
-            if ($resource.Tags[$filterTagName] -eq $AssuredTagsToFilter[$filterTagName]) {
-                Write-Verbose -Message ('The specified tag was matched on {0}. Resource tag = {{"{1}":"{2}"}}, Filtering tag = {{"{1}":"{3}"}}.' -f $_.ResourceId, $filterTagName, $resource.Tags[$filterTagName], $AssuredTagsToFilter[$filterTagName])
-                $shouldOutput = $true
-                break
-            }
-        }
-    }
-
-    return @{
-        ShouldOutput = $shouldOutput
-        Tags         = $resource.Tags
-    }
+    return $resource.Tags
 }
 
 function Get-TargetResource
@@ -196,7 +185,7 @@ function Get-TargetResource
     $resourceIdParts = $ResourceId.Split('/')
     if (($resourceIdParts.Length -eq 3) -and ($resourceIdParts[1] -eq 'subscriptions') -and
         ([Text.RegularExpressions.Regex]::Match($resourceIdParts[2], '^[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}$').Success)) {
-        return Get-AzSubscription -SubscriptionId $resourceIdParts[2]
+        return Get-AzSubscription -SubscriptionId $resourceIdParts[2]  # For the target resource is a subscription.
     }
     elseif ($resourceIdParts.Length -gt 3) {
         return Get-AzResource -ResourceId $ResourceId
@@ -204,6 +193,40 @@ function Get-TargetResource
 
     Write-Host -Object ('The resource ID "{0}" has an unexpected resource ID format.' -f $ResourceId) -ForegroundColor DarkYellow
     return $null
+}
+
+function Test-ResourceTagsAndFilterTagsMatching
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)][AllowEmptyString()]
+        [string] $ResourceId,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable] $AssuredTagsToFilter
+    )
+
+    if ([string]::IsNullOrWhiteSpace($ResourceId)) {
+        return $true  # Pass-through an unavailable recommendation result.
+    }
+
+    $shouldOutput = $false
+    foreach ($tagNameToFilter in $AssuredTagsToFilter.Keys) {
+        if ($_.assuredTags.Keys -contains $tagNameToFilter) {
+            $assuredTagValue = $_.assuredTags[$tagNameToFilter]
+            $tagValueToFilter = $AssuredTagsToFilter[$tagNameToFilter]
+            if ($assuredTagValue -eq $tagValueToFilter) {
+                Write-Verbose -Message ('The specified tag was matched on {0}. Resource tag = {{"{1}":"{2}"}}, Filtering tag = {{"{1}":"{3}"}}.' -f $ResourceId, $tagNameToFilter, $assuredTagValue, $tagValueToFilter)
+                $shouldOutput = $true
+                break
+            }
+        }
+    }
+
+    if (-not $shouldOutput) {
+        Write-Verbose -Message ('The specified tag was not matched on {0}.' -f $_.id)
+    }
+    return $shouldOutput
 }
 
 function Get-SerializedTags
@@ -217,18 +240,54 @@ function Get-SerializedTags
     return ($Tags.Keys | ForEach-Object -Process { '{{"{0}":"{1}"}}' -f $_, $Tags[$_] }) -join ', '
 }
 
+# Include the assured tags if the assured tags to filter are specified.
 $IncludeAssuredTags = if ($AssuredTagsToFilter.Count -gt 0) { $true } else { $IncludeAssuredTags }
 
 $azureContext = Get-AzContext
 Write-Host -Object ('The current Azure context is "{0}".' -f $azureContext.Name)
 
 Get-ChildItem -Path $QueriesFolderPath -File -Filter '*.kql' -Recurse -Depth 5 | ForEach-Object -Process {
-    $query = Get-ArgQuery -FilePath $_.FullName
-    $params = @{
-        Query               = $query
-        SubscriptionId      = $azureContext.Subscription.Id
-        AssuredTagsToFilter = $AssuredTagsToFilter
-        IncludeAssuredTags  = $IncludeAssuredTags
+    $kqlQueryFilePath = $_.FullName
+
+    $recommendationId = Get-RecommendationIdFromFilePath -FilePath $kqlQueryFilePath
+    Write-Host -Object ('{0,-10}: ' -f $recommendationId) -ForegroundColor Cyan -NoNewline
+
+    $query = Get-ArgQuery -FilePath $kqlQueryFilePath
+    if ($query.IsAvailable) {
+        Write-Host -Object 'Invoking the KQL query.' -ForegroundColor Cyan -NoNewline
+        Write-Host -Object (' - "{0}"' -f $Query.FilePath) -ForegroundColor DarkGray
+        return Invoke-ArgQuery -Query $query -SubscriptionId $azureContext.Subscription.Id
     }
-    Invoke-ArgQuery @params
+    else {
+        $psScriptFilePath = Join-Path -Path ([System.IO.Path]::GetDirectoryName($kqlQueryFilePath)) -ChildPath ([System.IO.Path]::GetFileNameWithoutExtension($kqlQueryFilePath) + '.ps1')
+        if (Test-Path -LiteralPath $psScriptFilePath -PathType Leaf) {
+            Write-Host -Object 'Invoking the PowerShell script.' -ForegroundColor Cyan -NoNewline
+            Write-Host -Object (' - "{0}"' -f $psScriptFilePath) -ForegroundColor DarkGray
+            return Invoke-PowerShellScript -PowerShellScriptFilePath $psScriptFilePath
+        }
+        else {
+            Write-Host -Object ('Skip this recommendation because it is {0}.' -f $query.UnavailableReason) -ForegroundColor Cyan -NoNewline
+            Write-Host -Object (' - "{0}"' -f $Query.FilePath) -ForegroundColor DarkGray
+            if ($IncludeSkippedQueries) {
+                return Get-UnavailableRecommendationResult -RecommendationId $recommendationId -UnavailableReason $query.UnavailableReason
+            }
+        }
+    }
+} |
+ForEach-Object -Process {
+    if (-not [string]::IsNullOrWhiteSpace($_.id)) {
+        Write-Verbose -Message ('Resource ID: {0}' -f $_.id)
+    }
+    if ($IncludeAssuredTags) {
+        $_.assuredTags = Get-ResourceTag -ResourceId $_.id
+    }
+    return $_
+} |
+Where-Object -FilterScript {
+    if ($AssuredTagsToFilter.Keys.Count -eq 0) { return $true } # No tags are specified for filtering.
+    return Test-ResourceTagsAndFilterTagsMatching -ResourceId $_.id -AssuredTagsToFilter $AssuredTagsToFilter
+} |
+ForEach-Object -Process {
+    $_.assuredTags = if ([string]::IsNullOrWhiteSpace($_.assuredTags)) { '' } else { Get-SerializedTags -Tags $_.assuredTags }
+    return $_
 }
