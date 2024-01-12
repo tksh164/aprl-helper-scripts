@@ -25,7 +25,8 @@ Expand-Archive -Path $zipFilePath -DestinationPath $zipExpandedFolderPath -Force
 Write-Host -Object ('Extracting the APRL queries to "{0}"...' -f $QueriesFolderPath) -ForegroundColor Cyan
 $subFolderPath = [IO.Path]::Combine('Azure-Proactive-Resiliency-Library-main', 'docs', 'content', 'services')
 $queryFileSearchBasePath = Join-Path -Path $zipExpandedFolderPath -ChildPath $subFolderPath
-'*.kql', '*.ps1' | ForEach-Object -Process {
+#'*.kql', '*.ps1' | ForEach-Object -Process {
+'*.kql' | ForEach-Object -Process {
     $filter = $_
     Get-ChildItem -Path $queryFileSearchBasePath -File -Filter $filter -Recurse -Depth 5 | ForEach-Object -Process {
         $sourceFilePath = $_.FullName
