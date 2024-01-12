@@ -1,14 +1,14 @@
 # APRL helper scripts
 
-The helper scripts to utilize the [Azure Proactive Resiliency Library (APRL)](https://github.com/Azure/Azure-Proactive-Resiliency-Library). The scripts allow batch execution of the APRL's queries.
+The helper scripts to utilize the [Azure Proactive Resiliency Library (APRL)](https://github.com/Azure/Azure-Proactive-Resiliency-Library). The scripts allow batch execution of the APRL's queries and PowerShell scripts.
 
 ## Helper scripts
 
 Three helper scripts have different purposes.
 
-- **getaprl.ps1**: Downloads the APRL contents from the [APRL GitHub repository](https://github.com/Azure/Azure-Proactive-Resiliency-Library). After downloading, this script extracts Azure Resource Graph (ARG) queries, and stores it into the `queries` folder in the current directory. The `queries` folder will be created if it does not exist.
+- **getaprl.ps1**: Downloads the APRL contents from the [APRL GitHub repository](https://github.com/Azure/Azure-Proactive-Resiliency-Library). After downloading, this script extracts Azure Resource Graph (ARG) queries and PowerShell scripts, also stores it into the `queries` folder in the current directory. The `queries` folder will be created if it does not exist.
 
-- **runaprl.ps1**: Executes the downloaded ARG queries in the `queries` folder against your Azure subscription.
+- **runaprl.ps1**: Executes the downloaded ARG queries and PowerShell scripts in the `queries` folder against your Azure subscription.
 
     - You must have completed [Connect-AzAccount](https://learn.microsoft.com/en-us/powershell/module/az.accounts/connect-azaccount) and [Set-AzContext](https://learn.microsoft.com/en-us/powershell/module/az.accounts/set-azcontext) correctly before run this script.
     
@@ -29,13 +29,13 @@ Three helper scripts have different purposes.
 
 ## Quick start
 
-1. Download the APRL's contents onto your local filesystem. After running the following command, the APRL's ARG queries are stored in the `queries` folder in the current directory.
+1. Download the APRL's contents onto your local filesystem. After running the following command, the APRL's ARG queries & PowerShell scripts are stored in the `queries` folder in the current directory.
 
     ```powershell
     PS C:\aprl> .\getaprl.ps1
     ```
 
-2. Execute the APRL's ARG queries in the `queries` folder, and save the result to the `./results.csv` file.
+2. Execute the APRL's ARG queries & PowerShell scripts in the `queries` folder, and save the result to the `./results.csv` file.
 
     ```powershell
     PS C:\aprl> .\runaprl.ps1 | .\saveascsv.ps1
@@ -53,25 +53,25 @@ Three helper scripts have different purposes.
 
 ### runaprl.ps1 and saveascsv.ps1
 
-- **Example 1:** Execute the APRL's ARG queries without saving the result to a file.
+- **Example 1:** Execute the APRL's ARG queries and PowerShell scripts without saving the result to a file.
 
     ```powershell
     PS C:\aprl> .\runaprl.ps1
     ```
 
-- **Example 2:** Execute the APRL's ARG queries, then save the result to a CSV file using the standard PowerShell cmdlets.
+- **Example 2:** Execute the APRL's ARG queries and PowerShell scripts, then save the result to a CSV file using the standard PowerShell cmdlets.
 
     ```powershell
     PS C:\aprl> .\runaprl.ps1 | ConvertTo-Csv -NoTypeInformation | Out-File -LiteralPath './results.csv' -Encoding utf8 -Force
     ```
 
-- **Example 3:** Execute the APRL's ARG queries, then save the result to a CSV file using the `saveascsv.ps1` script. The `saveascsv.ps1` script is convenient (less typing) than use standard PowerShell cmdlets. 
+- **Example 3:** Execute the APRL's ARG queries and PowerShell scripts, then save the result to a CSV file using the `saveascsv.ps1` script. The `saveascsv.ps1` script is convenient (less typing) than use standard PowerShell cmdlets. 
 
     ```powershell
     PS C:\aprl> .\runaprl.ps1 | .\saveascsv.ps1
     ```
 
-- **Example 4:** Execute the APRL's ARG queries, then showing the result in a grid view. This is convenient for interacting with the results using UI, or copy and paste to Excel, etc.
+- **Example 4:** Execute the APRL's ARG queries and PowerShell scripts, then showing the result in a grid view. This is convenient for interacting with the results using UI, or copy and paste to Excel, etc.
 
     ```powershell
     PS C:\aprl> .\runaprl.ps1 | Out-GridView
