@@ -90,7 +90,6 @@ function Invoke-ArgQuery
                 'param3'           = $_.param3
                 'param4'           = $_.param4
                 'param5'           = $_.param5
-                'param6'           = $_.param6
                 'assuredTags'      = ''
             }
         }
@@ -118,7 +117,6 @@ function Invoke-PowerShellScript
             'param3'           = $_.param3
             'param4'           = $_.param4
             'param5'           = $_.param5
-            'param6'           = $_.param6
             'assuredTags'      = ''
         }
     }
@@ -145,7 +143,6 @@ function Get-UnavailableRecommendationResult
         'param3'           = ''
         'param4'           = ''
         'param5'           = ''
-        'param6'           = ''
         'assuredTags'      = ''
     }
 }
